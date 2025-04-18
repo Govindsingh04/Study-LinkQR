@@ -1,44 +1,46 @@
-import { useEffect, useState } from 'react';
-import { supabase } from '../utils/supabaseClient'; // Import Supabase client
-import UploadForm from '../components/UploadForm';  // Upload component
+import { useState, useEffect } from 'react';
+import { supabase } from '../utils/supabaseClient';
 
-export default function Home() {
-  const [media, setMedia] = useState([]);
+export default function HomePage() {
+  const [files, setFiles] = useState([]);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
-    const fetchMedia = async () => {
-      const { data, error } = await supabase
-        .from('youtube_links')
-        .select('*');
-
-      if (error) {
-        console.error(error);
-        return;
-      }
-      setMedia(data);
-    };
-
-    fetchMedia();
+    fetchFiles();
   }, []);
 
+  async function fetchFiles() {
+    const { data, error } = await supabase.storage.from('studylinkqr').list('', { limit: 100 });
+    if (data) setFiles(data);
+  }
+
+  async function handleUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    const { data, error } = await supabase.storage
+      .from('studylinkqr')
+      .upload(`${Date.now()}-${file.name}`, file);
+
+    setUploading(false);
+    if (data) fetchFiles();
+  }
+
   return (
-    <div>
-      <h1>StudyLink QR - Upload Your Media</h1>
-      <UploadForm />
-      <div>
-        <h2>Uploaded Media:</h2>
-        {media.map((link) => (
-          <div key={link.id}>
-            <iframe
-              src={link.url}
-              width="560"
-              height="315"
-              allowFullScreen
-              title={link.url}
-            />
-          </div>
+    <div style={{ padding: 20 }}>
+      <h1>📁 StudyLinkQR - Upload and Share Files</h1>
+      <input type="file" onChange={handleUpload} />
+      {uploading && <p>Uploading...</p>}
+      <ul>
+        {files.map((file) => (
+          <li key={file.name}>
+            <a href={`https://YOUR_PROJECT.supabase.co/storage/v1/object/public/studylinkqr/${file.name}`} target="_blank" rel="noopener noreferrer">
+              {file.name}
+            </a>
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
   );
 }
